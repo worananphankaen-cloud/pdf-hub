@@ -4,6 +4,10 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
+import * as pdfjsLib from 'pdfjs-dist'
+
+// กำหนด Worker ผ่าน unpkg โดยใช้เวอร์ชันเดียวกับแพ็กเกจที่ติดตั้งในโปรเจกต์อัตโนมัติ
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
 
 export default function Viewer() {
   const role = useAuth()
@@ -16,26 +20,36 @@ export default function Viewer() {
   const [err, setErr] = useState('')
   const [scale, setScale] = useState(1.5)
   const [darkModePdf, setDarkModePdf] = useState(false)
+  const [loading, setLoading] = useState(true)
   const pdfRef = useRef<any>(null)
   const boxRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (!role) return
-    ;(async () => {
-      const { data: m } = await supabase.from('manuals').select('*').eq('id', id).single()
-      if (!m) return setErr('ไม่พบคู่มือ')
+  const loadPdf = async () => {
+    try {
+      setLoading(true)
+      setErr('')
+      const { data: m, error: mErr } = await supabase.from('manuals').select('*').eq('id', id).single()
+      if (mErr || !m) return setErr('ไม่พบคู่มือในระบบ')
       setTitle(m.title)
       setCatId(m.category_id)
-      const { data: s } = await supabase.storage.from('manuals').createSignedUrl(m.file_path, 3600)
-      if (!s) return setErr('เปิดไฟล์ไม่ได้')
+
+      const { data: s, error: sErr } = await supabase.storage.from('manuals').createSignedUrl(m.file_path, 7200)
+      if (sErr || !s) return setErr('ไม่สามารถเปิดไฟล์ PDF ได้ (ตรวจสอบสิทธิ์ Storage Bucket)')
       setUrl(s.signedUrl)
 
-      const pdfjs = await import('pdfjs-dist')
-      pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString()
-      const pdf = await pdfjs.getDocument(s.signedUrl).promise
+      const pdf = await pdfjsLib.getDocument(s.signedUrl).promise
       pdfRef.current = pdf
       setPages(pdf.numPages)
-    })().catch(() => setErr('โหลด PDF ไม่สำเร็จ'))
+    } catch (e) {
+      setErr('โหลด PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!role) return
+    loadPdf()
   }, [role, id])
 
   useEffect(() => {
@@ -91,7 +105,6 @@ export default function Viewer() {
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
-          {/* Zoom & Dark Mode Controls */}
           <div className="flex items-center gap-1 bg-slate-950/60 border border-white/10 p-1 rounded-xl">
             <button onClick={() => setScale(s => Math.max(1, s - 0.25))} className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold">-</button>
             <span className="text-xs px-2 font-mono">{Math.round(scale * 100)}%</span>
@@ -114,7 +127,23 @@ export default function Viewer() {
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 relative z-10">
-        {err && <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-6 rounded-2xl text-sm">{err}</div>}
+        {err && (
+          <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-8 rounded-3xl backdrop-blur-xl text-center space-y-4 max-w-md w-full shadow-2xl">
+            <p className="text-3xl">⚠️</p>
+            <p className="text-sm font-semibold">{err}</p>
+            <button onClick={loadPdf} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-lg transition-all">
+              🔄 ลองโหลดใหม่อีกครั้ง
+            </button>
+          </div>
+        )}
+
+        {loading && !err && (
+          <div className="flex flex-col items-center gap-3 py-20">
+            <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
+            <p className="text-slate-400 text-sm font-medium animate-pulse">กำลังดึงข้อมูลเอกสาร PDF...</p>
+          </div>
+        )}
+
         <div ref={boxRef} className="flex flex-col items-center gap-6 w-full max-w-4xl py-4">
           {Array.from({ length: pages }, (_, i) => (
             <canvas key={i} id={`page-${i + 1}`} data-p={i + 1} className={`bg-white shadow-2xl rounded-2xl max-w-full h-auto transition-transform duration-300 ${darkModePdf ? 'filter invert hue-rotate-180 brightness-95' : ''}`} />
