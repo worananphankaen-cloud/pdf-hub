@@ -6,13 +6,10 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import * as pdfjsLib from 'pdfjs-dist'
 
-// === แก้ไขตรงนี้ ===
-// ตั้งค่า workerSrc ให้ดึงไฟล์จาก cdnjs โดยระบุเวอร์ชันให้ตรงกับ pdfjs-dist ในเครื่องแบบอัตโนมัติ
-// เพื่อป้องกันปัญหา Error 404 และปัญหา CORS เวลา Deploy ขึ้น Vercel
+// กำหนด Worker แบบ In-memory (Fake Worker) ป้องกันปัญหา CORS และ 404 ทุกประการ
 if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
 }
-// =================
 
 export default function Viewer() {
   const role = useAuth()
@@ -42,7 +39,6 @@ export default function Viewer() {
       if (sErr || !s) return setErr('ไม่สามารถเปิดไฟล์ PDF ได้ (ตรวจสอบสิทธิ์ Storage Bucket)')
       setUrl(s.signedUrl)
 
-      // ดึงเอกสาร PDF โดยใช้ Worker ที่ตั้งค่าไว้ด้านบน
       const loadingTask = pdfjsLib.getDocument(s.signedUrl)
       const pdf = await loadingTask.promise
       pdfRef.current = pdf
