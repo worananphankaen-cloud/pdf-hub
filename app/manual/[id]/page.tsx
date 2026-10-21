@@ -6,8 +6,10 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import * as pdfjsLib from 'pdfjs-dist'
 
-// กำหนด Worker ผ่าน unpkg โดยใช้เวอร์ชันเดียวกับแพ็กเกจที่ติดตั้งในโปรเจกต์อัตโนมัติ
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
+// ใช้ GlobalWorkerOptions เป็น worker ในตัว (Fake worker) เพื่อป้องกันปัญหา CORS และ Build Error บน Vercel
+if (typeof window !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+}
 
 export default function Viewer() {
   const role = useAuth()
@@ -37,10 +39,12 @@ export default function Viewer() {
       if (sErr || !s) return setErr('ไม่สามารถเปิดไฟล์ PDF ได้ (ตรวจสอบสิทธิ์ Storage Bucket)')
       setUrl(s.signedUrl)
 
-      const pdf = await pdfjsLib.getDocument(s.signedUrl).promise
+      const loadingTask = pdfjsLib.getDocument(s.signedUrl)
+      const pdf = await loadingTask.promise
       pdfRef.current = pdf
       setPages(pdf.numPages)
     } catch (e) {
+      console.error('PDF Load Exception:', e)
       setErr('โหลด PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
     } finally {
       setLoading(false)
