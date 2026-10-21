@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -11,14 +11,8 @@ export default function Viewer() {
   const [title, setTitle] = useState('')
   const [catId, setCatId] = useState('')
   const [url, setUrl] = useState('')
-  const [pages, setPages] = useState(0)
-  const [jump, setJump] = useState('')
   const [err, setErr] = useState('')
-  const [scale, setScale] = useState(1.5)
-  const [darkModePdf, setDarkModePdf] = useState(false)
   const [loading, setLoading] = useState(true)
-  const pdfRef = useRef<any>(null)
-  const boxRef = useRef<HTMLDivElement>(null)
 
   const loadPdf = async () => {
     try {
@@ -32,19 +26,6 @@ export default function Viewer() {
       const { data: s, error: sErr } = await supabase.storage.from('manuals').createSignedUrl(m.file_path, 7200)
       if (sErr || !s) return setErr('ไม่สามารถเปิดไฟล์ PDF ได้ (ตรวจสอบสิทธิ์ Storage Bucket)')
       setUrl(s.signedUrl)
-
-      // Dynamic import pdfjs-dist เฉพาะฝั่ง Client และเคลียร์ Worker ทิ้งไม่ให้มันวิ่งหา CDN
-      const pdfjsLib = await import('pdfjs-dist')
-      pdfjsLib.GlobalWorkerOptions.workerSrc = ''
-
-      const loadingTask = pdfjsLib.getDocument({
-        url: s.signedUrl,
-        disableWorker: true,
-      })
-      
-      const pdf = await loadingTask.promise
-      pdfRef.current = pdf
-      setPages(pdf.numPages)
     } catch (e) {
       console.error('PDF Load Exception:', e)
       setErr('โหลด PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
@@ -58,38 +39,8 @@ export default function Viewer() {
     loadPdf()
   }, [role, id])
 
-  useEffect(() => {
-    if (!pages || !boxRef.current || !pdfRef.current) return
-    const io = new IntersectionObserver(async entries => {
-      for (const e of entries) {
-        const el = e.target as HTMLCanvasElement
-        if (!e.isIntersecting) continue
-        const page = await pdfRef.current.getPage(Number(el.dataset.p))
-        const vp = page.getViewport({ scale })
-        el.width = vp.width
-        el.height = vp.height
-        await page.render({ canvasContext: el.getContext('2d')!, viewport: vp }).promise
-      }
-    }, { rootMargin: '600px' })
-    boxRef.current.querySelectorAll('canvas').forEach(c => io.observe(c))
-    return () => io.disconnect()
-  }, [pages, scale])
-
-  const goTo = () => {
-    const n = Math.min(Math.max(1, Number(jump) || 1), pages)
-    document.getElementById(`page-${n}`)?.scrollIntoView({ behavior: 'smooth' })
-  }
-
-  const print = async () => {
-    const blob = await (await fetch(url)).blob()
-    const f = document.createElement('iframe')
-    f.style.display = 'none'
-    f.src = URL.createObjectURL(blob)
-    document.body.appendChild(f)
-    f.onload = () => f.contentWindow?.print()
-  }
-
   const download = async () => {
+    if (!url) return
     const blob = await (await fetch(url)).blob()
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
@@ -111,28 +62,11 @@ export default function Viewer() {
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
-          <div className="flex items-center gap-1 bg-slate-950/60 border border-white/10 p-1 rounded-xl">
-            <button onClick={() => setScale(s => Math.max(1, s - 0.25))} className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold">-</button>
-            <span className="text-xs px-2 font-mono">{Math.round(scale * 100)}%</span>
-            <button onClick={() => setScale(s => Math.min(2.5, s + 0.25))} className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold">+</button>
-          </div>
-
-          <button onClick={() => setDarkModePdf(!darkModePdf)} className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${darkModePdf ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-800 border-white/10 text-slate-300'}`}>
-            🌙 Dark PDF
-          </button>
-
-          <div className="flex items-center gap-2 bg-slate-950/60 border border-white/10 px-3 py-1.5 rounded-xl text-xs">
-            <span className="text-slate-400">หน้า</span>
-            <input className="bg-slate-900 border border-white/10 rounded-lg w-14 p-1 text-center text-white focus:outline-none" value={jump} onChange={e => setJump(e.target.value)} onKeyDown={e => e.key === 'Enter' && goTo()} placeholder={pages ? `1-${pages}` : ''} />
-            <button onClick={goTo} className="px-2 py-1 bg-indigo-600/20 text-indigo-300 rounded-lg font-bold border border-indigo-500/30">ไป</button>
-          </div>
-
           <button onClick={download} disabled={!url} className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50">⬇ ดาวน์โหลด</button>
-          <button onClick={print} disabled={!url} className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 rounded-xl text-xs font-bold transition-all disabled:opacity-50">🖨 พิมพ์</button>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 relative z-10">
+      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 relative z-10 w-full h-[calc(100vh-70px)]">
         {err && (
           <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-8 rounded-3xl backdrop-blur-xl text-center space-y-4 max-w-md w-full shadow-2xl">
             <p className="text-3xl">⚠️</p>
@@ -146,15 +80,17 @@ export default function Viewer() {
         {loading && !err && (
           <div className="flex flex-col items-center gap-3 py-20">
             <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
-            <p className="text-slate-400 text-sm font-medium animate-pulse">กำลังดึงข้อมูลเอกสาร PDF...</p>
+            <p className="text-slate-400 text-sm font-medium animate-pulse">กำลังเตรียมเอกสาร PDF...</p>
           </div>
         )}
 
-        <div ref={boxRef} className="flex flex-col items-center gap-6 w-full max-w-4xl py-4">
-          {Array.from({ length: pages }, (_, i) => (
-            <canvas key={i} id={`page-${i + 1}`} data-p={i + 1} className={`bg-white shadow-2xl rounded-2xl max-w-full h-auto transition-transform duration-300 ${darkModePdf ? 'filter invert hue-rotate-180 brightness-95' : ''}`} />
-          ))}
-        </div>
+        {!loading && url && !err && (
+          <iframe 
+            src={`${url}#toolbar=1`} 
+            className="w-full h-full rounded-2xl border border-white/10 shadow-2xl bg-white"
+            title={title}
+          />
+        )}
       </div>
     </div>
   )
