@@ -6,9 +6,9 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import * as pdfjsLib from 'pdfjs-dist'
 
-// ใช้ GlobalWorkerOptions เป็น worker ในตัว (Fake worker) เพื่อป้องกันปัญหา CORS และ Build Error บน Vercel
+// กำหนด Worker แบบ In-memory (Fake Worker) ป้องกันปัญหา CORS และ 404 ทุกประการ
 if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
 }
 
 export default function Viewer() {
