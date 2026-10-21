@@ -1,0 +1,14 @@
+# ยิง request สัปดาห์ละ 2 ครั้ง กัน Supabase Free ถูก Pause
+# ตั้ง GitHub Secrets: SUPABASE_URL, SUPABASE_ANON_KEY
+name: supabase-keepalive
+on:
+  schedule: [{ cron: '0 3 * * 1,4' }]
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -sf "${{ secrets.SUPABASE_URL }}/rest/v1/categories?select=id&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" || true
