@@ -6,7 +6,6 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import * as pdfjsLib from 'pdfjs-dist'
 
-// กำหนด Worker แบบ In-memory (Fake Worker) ป้องกันปัญหา CORS และ 404 ทุกประการ
 if (typeof window !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
 }
@@ -20,7 +19,7 @@ export default function Viewer() {
   const [pages, setPages] = useState(0)
   const [jump, setJump] = useState('')
   const [err, setErr] = useState('')
-  const [scale, setScale] = useState(1.5)
+  const [scale, setScale] = useState(1.0)
   const [darkModePdf, setDarkModePdf] = useState(false)
   const [loading, setLoading] = useState(true)
   const pdfRef = useRef<any>(null)
@@ -43,6 +42,12 @@ export default function Viewer() {
       const pdf = await loadingTask.promise
       pdfRef.current = pdf
       setPages(pdf.numPages)
+
+      // คำนวณสเกลให้พอดีกับหน้าจออัตโนมัติจากหน้าแรก
+      const page = await pdf.getPage(1)
+      const unscaledVp = page.getViewport({ scale: 1.0 })
+      const containerWidth = Math.min(window.innerWidth - 64, 900)
+      setScale(containerWidth / unscaledVp.width)
     } catch (e) {
       console.error('PDF Load Exception:', e)
       setErr('โหลด PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
@@ -110,9 +115,9 @@ export default function Viewer() {
 
         <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
           <div className="flex items-center gap-1 bg-slate-950/60 border border-white/10 p-1 rounded-xl">
-            <button onClick={() => setScale(s => Math.max(1, s - 0.25))} className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold">-</button>
+            <button onClick={() => setScale(s => Math.max(0.5, s - 0.15))} className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold">-</button>
             <span className="text-xs px-2 font-mono">{Math.round(scale * 100)}%</span>
-            <button onClick={() => setScale(s => Math.min(2.5, s + 0.25))} className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold">+</button>
+            <button onClick={() => setScale(s => Math.min(2.5, s + 0.15))} className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold">+</button>
           </div>
 
           <button onClick={() => setDarkModePdf(!darkModePdf)} className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${darkModePdf ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-800 border-white/10 text-slate-300'}`}>
@@ -130,7 +135,7 @@ export default function Viewer() {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 relative z-10">
+      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 relative z-10">
         {err && (
           <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-8 rounded-3xl backdrop-blur-xl text-center space-y-4 max-w-md w-full shadow-2xl">
             <p className="text-3xl">⚠️</p>
@@ -148,9 +153,9 @@ export default function Viewer() {
           </div>
         )}
 
-        <div ref={boxRef} className="flex flex-col items-center gap-6 w-full max-w-4xl py-4">
+        <div ref={boxRef} className="flex flex-col items-center gap-6 w-full max-w-4xl py-4 mx-auto">
           {Array.from({ length: pages }, (_, i) => (
-            <canvas key={i} id={`page-${i + 1}`} data-p={i + 1} className={`bg-white shadow-2xl rounded-2xl max-w-full h-auto transition-transform duration-300 ${darkModePdf ? 'filter invert hue-rotate-180 brightness-95' : ''}`} />
+            <canvas key={i} id={`page-${i + 1}`} data-p={i + 1} className={`bg-white shadow-2xl rounded-2xl w-full h-auto object-contain transition-transform duration-300 ${darkModePdf ? 'filter invert hue-rotate-180 brightness-95' : ''}`} />
           ))}
         </div>
       </div>
