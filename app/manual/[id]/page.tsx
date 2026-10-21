@@ -6,8 +6,9 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import * as pdfjsLib from 'pdfjs-dist'
 
+// ปิดการเรียกใช้ Worker เพื่อให้รันบน Main Thread ป้องกันปัญหาเรื่องพาธไฟล์
 if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.mjs`
+  pdfjsLib.GlobalWorkerOptions.workerSrc = ''
 }
 
 export default function Viewer() {
@@ -38,6 +39,7 @@ export default function Viewer() {
       if (sErr || !s) return setErr('ไม่สามารถเปิดไฟล์ PDF ได้ (ตรวจสอบสิทธิ์ Storage Bucket)')
       setUrl(s.signedUrl)
 
+      // โหลดเอกสารโดยตรงผ่าน URL (ไม่ต้องใส่ disableWorker ในอ็อปชัน)
       const loadingTask = pdfjsLib.getDocument(s.signedUrl)
       const pdf = await loadingTask.promise
       pdfRef.current = pdf
