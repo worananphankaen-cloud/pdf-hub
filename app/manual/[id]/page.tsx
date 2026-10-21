@@ -6,8 +6,9 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import * as pdfjsLib from 'pdfjs-dist'
 
+// กำหนด Worker URL ให้ชี้ไปยัง CDN unpkg ซึ่งมีไฟล์ pdf.worker.min.js ตรงเวอร์ชันแน่นอน
 if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
 }
 
 export default function Viewer() {
@@ -43,7 +44,6 @@ export default function Viewer() {
       pdfRef.current = pdf
       setPages(pdf.numPages)
 
-      // คำนวณสเกลให้พอดีกับหน้าจออัตโนมัติจากหน้าแรก
       const page = await pdf.getPage(1)
       const unscaledVp = page.getViewport({ scale: 1.0 })
       const containerWidth = Math.min(window.innerWidth - 64, 900)
