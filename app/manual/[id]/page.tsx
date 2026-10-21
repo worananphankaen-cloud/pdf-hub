@@ -66,9 +66,9 @@ export default function Viewer() {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 relative z-10 w-full h-[calc(100vh-70px)]">
+      <div className="flex-1 w-full h-[calc(100vh-80px)] p-4 sm:p-6 relative z-10 flex flex-col">
         {err && (
-          <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-8 rounded-3xl backdrop-blur-xl text-center space-y-4 max-w-md w-full shadow-2xl">
+          <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-8 rounded-3xl backdrop-blur-xl text-center space-y-4 max-w-md w-full shadow-2xl m-auto">
             <p className="text-3xl">⚠️</p>
             <p className="text-sm font-semibold">{err}</p>
             <button onClick={loadPdf} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-lg transition-all">
@@ -78,7 +78,7 @@ export default function Viewer() {
         )}
 
         {loading && !err && (
-          <div className="flex flex-col items-center gap-3 py-20">
+          <div className="flex flex-col items-center justify-center gap-3 m-auto">
             <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
             <p className="text-slate-400 text-sm font-medium animate-pulse">กำลังเตรียมเอกสาร PDF...</p>
           </div>
@@ -87,7 +87,7 @@ export default function Viewer() {
         {!loading && url && !err && (
           <iframe 
             src={`${url}#toolbar=1`} 
-            className="w-full h-full rounded-2xl border border-white/10 shadow-2xl bg-white"
+            className="w-full flex-1 rounded-2xl border border-white/10 shadow-2xl bg-white"
             title={title}
           />
         )}
