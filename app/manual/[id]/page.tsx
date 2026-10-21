@@ -4,12 +4,6 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
-import * as pdfjsLib from 'pdfjs-dist'
-
-// ปิดการใช้ Worker แยกไฟล์ภายนอก โดยรันผ่านหลัก (Main Thread) เพื่อป้องกันปัญหา CORS และ Build Error บน Vercel 100%
-if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = ''
-}
 
 export default function Viewer() {
   const role = useAuth()
@@ -39,7 +33,11 @@ export default function Viewer() {
       if (sErr || !s) return setErr('ไม่สามารถเปิดไฟล์ PDF ได้ (ตรวจสอบสิทธิ์ Storage Bucket)')
       setUrl(s.signedUrl)
 
-      const loadingTask = pdfjsLib.getDocument(s.signedUrl)
+      // โหลด pdfjs แบบปลอดภัยและเซ็ตค่า disableWorker เพื่อไม่ให้โหลดไฟล์ .js ภายนอก
+      const pdfjs = await import('pdfjs-dist/legacy/build/pdf.js' as any).catch(() => import('pdfjs-dist'))
+      pdfjs.GlobalWorkerOptions.workerSrc = ''
+
+      const loadingTask = pdfjs.getDocument(s.signedUrl)
       const pdf = await loadingTask.promise
       pdfRef.current = pdf
       setPages(pdf.numPages)
